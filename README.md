@@ -1,10 +1,10 @@
-# Editable WEB Server
+# HTTP Server
 
 This server has inbuild HTTP support for hosting a web page.
 
 `POST request are not yet supported.`
 
-## Starting a server
+## Creating a server
 First we create the server object:  
 `Server(host={device local address},port=8080)`
 ```python
@@ -30,10 +30,19 @@ def main(client):
 
     # sends the response with headers
     # note: the content type of response has to be the first argument
-    client.commit("text/plain")
+    client.commit()
 
 #Sets the `main` function as the handler for path `/`
 server.get("/",main)
+```
+
+To serve a static path:
+```python
+#Serve the files in path '.' as '/' on the server
+server.static(".","/")
+
+#For example:
+# the server file 'example.py' will be served on path '/example.py'
 ```
 
 To start the server:  
@@ -60,11 +69,13 @@ def main(client):
     client.sendFile("index.html")
 
     # sends the response with headers
-    # note: the content type of response has to be the first argument
-    client.commit("text/plain")
+    client.commit("text/html")
 
 #Sets the `main` function as the handler for path `/`
 server.get("/",main)
+
+#Serve the files in path '.' as '/' on the server
+server.static(".","/")
 
 #Start the server
 server.server_forever()
@@ -86,6 +97,7 @@ The stored data and headers are sent after calling the function:
 ```python
 client.commit({content type of response})
 ```
+`note:the contentType is defaulted to "text/plain". If the "sendFile" function is called the contentType changes to the recognized content type.`
 
 The auto generated headers can be enabled by calling the function:   
 ```python

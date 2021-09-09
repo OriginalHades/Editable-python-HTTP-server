@@ -1,24 +1,26 @@
+#import the server class
 from server import Server
 
+#create class object `server`
 server = Server()
-print(server.host + ":" + str(server.port))
 
+#Main function as a request handler
 def main(client):
+    # Initiates automaticly generated headers based on response content
     client.autoHeaders()
 
-    client.sendFile("headers.txt")
+    # Adds `index.html` contents to the response
+    client.sendFile("index.html")
 
-    client.commit("text/plain")
+    # sends the response with headers
+    client.commit("text/html")
 
-def hello(client):
-    client.autoHeaders()
 
-    client.send("Hello")
+#Sets the `main` function as the handler for path `/`
+server.get("/", main)
 
-    client.commit("text/plain")
+#Serve the files in path '.' as '/' on the server
+server.static(".", "/")
 
-server.get("/",main)
-
-server.get("/hello",hello)
-
+#Start the server
 server.server_forever()
