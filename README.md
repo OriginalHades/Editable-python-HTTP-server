@@ -2,7 +2,8 @@
 
 This server has inbuild HTTP support for hosting a web page.
 
-`POST request are not yet supported.`
+~~`POST request are not yet supported.`~~
+`Post requests support was added in this newest version`
 
 ## Creating a server
 First we create the server object:  
@@ -18,7 +19,7 @@ The arguments of the server are `host` and `port`
 They are defaulted to the devices local address and port `8080`
 
 To handle get request:   
-`server.get(path,callback)`
+`server.get(path,handler)`
 
 ```python
 def main(client):
@@ -36,13 +37,32 @@ def main(client):
 server.get("/",main)
 ```
 
+To handle post request:   
+`server.post(path,handler)`
+
+```python
+#Main post as a request handler
+def main_post(client,data):
+    #Prints post raw request body
+    print(data)
+
+    # Initiates automaticly generated headers based on response content
+    client.autoHeaders()
+
+    # Adds `index.html` contents to the response
+    client.sendFile("index.html")
+
+    # sends the response with headers
+    client.commit("text/html")
+```
+
 To serve a static path:
 ```python
-#Serve the files in path '.' as '/' on the server
+#Serve the files in path './public' as '/' on the server
 server.static(".","/")
 
 #For example:
-# the server file 'example.py' will be served on path '/example.py'
+# the server file 'test.txt' will be served on path '/test.txt'
 ```
 
 To start the server:  

@@ -3,7 +3,7 @@ import socket,threading,os,time
 defaultHost = os.popen("hostname -I").read().split(" ")[0]
 
 class clientConnection:
-    def __init__(self,connection,address,request,server):
+    def __init__(self,connection,address,request,server,body = None):
         self.connection = connection
         self.address = address
         self.request = request
@@ -13,7 +13,10 @@ class clientConnection:
         self.toSend = b""
 
         self.chunkSize = 1024
-        self.contentType = "text/html"
+        self.contentType = "text/plain"
+        self.status = 200
+
+        self.body = body
 
     def send(self,data):
         if self.autoHeadersEnable:
@@ -38,13 +41,15 @@ class clientConnection:
         self.toSend = b""
         self.autoHeadersEnable = True
     
-    def commit(self,contentType=None):
+    def commit(self,contentType=None,status=None):
         if contentType == None:
             contentType = self.contentType
+        if status == None:
+            status = self.status
 
         if self.autoHeadersEnable:
             self.connection.send(bytes(
-                self.server.generateHeaders(200,
+                self.server.generateHeaders(status,
                 "OK",
                 {
                     "Content-Type":contentType + "; charset=utf-8",
@@ -90,52 +95,52 @@ class Server:
                 request = self.decodeRequestHeaders(data.decode())
                 #headers = self.generateHeaders(200,{"Connection":"Keep-Alive","Content-Type":"text/plain; charset=utf-8"})
 
-                client = clientConnection(connection,address,request,self)
+                client = clientConnection(connection,address,request,self,request["BODY"])
                 
                 if request["REQUEST"] == "GET":
                     static = False
                     
                     for a in self.staticFileHandlers:
-                        print(request["PATH"][:request["PATH"].rfind("/")].strip(),a[1])
-                        if request["PATH"][:request["PATH"].rfind("/")].strip() == a[1]:
-                            for b in os.listdir(path=a[0]):
-                                if request["PATH"][request["PATH"].rfind("/")+1:] == b:
-                                    client.autoHeaders()
+                        if request["PATH"][:request["PATH"].rfind("/")+1].strip().startswith(a[1]):
+                            pth = os.path.join(a[0],request["PATH"][1:])
 
-                                    fl = os.path.join(a[0], b)
+                            if os.path.isfile(pth):
+                                client.autoHeaders()
 
-                                    client.sendFile(fl)
+                                client.sendFile(pth)
 
-                                    client.commit("text/"+b[b.rfind(".")+1:])
-                                    static = True
+                                client.commit("text/"+pth[pth.rfind(".")+1:])
+                                static = True
+
 
                     if not static:
                         if request["PATH"] in self.getPathHandlers:
                             self.getPathHandlers[request["PATH"]](client)
                         else:
-                            client.send(self.generateHeaders(404,"Not Found",{"Connection":"keep-alive"}))
+                            self.handleNotFound(client)
 
                 elif request["REQUEST"] == "POST":
                     if request["PATH"] in self.postPathHandlers:
-                        print(request)
-                        self.getPathHandlers[request["PATH"]](client,"")
+                        self.postPathHandlers[request["PATH"]](client,request["BODY"])
                     else:
-                        client.send(self.generateHeaders(404,"Not Found",{"Connection":"keep-alive"}))
+                        self.handleNotFound(client)
                 
                 if not request["CONNECTION"] == "keep-alive":
                     keepAlive = False
 
-        #connection.send(bytes(body.encode("utf-8"))
-
     def decodeRequestHeaders(self,headerData):
         out = {}
 
-        headerData = headerData.split("\r\n")
+        data = headerData.split("\r\n\r\n")
+        body = data[1]
+
+        headerData = data[0].split("\r\n")
         top = headerData[0].split(" ")
         headerData = headerData[1:]
 
         out["REQUEST"] = top[0]
         out["PATH"] = top[1]
+        out["BODY"] = body
 
         for a in headerData:
             b = a.split(": ")
@@ -160,11 +165,16 @@ class Server:
         finally:
             s.close()
     
-    def get(self,path,callback):
-        self.getPathHandlers[path] = callback
+    def get(self,path,handler):
+        self.getPathHandlers[path] = handler
     
-    def post(self,path,callback):
-        self.postPathHandlers[path] = callback
+    def post(self,path,handler):
+        self.postPathHandlers[path] = handler
     
     def static(self,path,serveringPath):
         self.staticFileHandlers.append((path,serveringPath))
+
+    def handleNotFound(self,client):
+        client.autoHeaders()
+        #client.send("404")
+        client.commit("text/plain",404)
